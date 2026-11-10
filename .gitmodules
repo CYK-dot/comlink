@@ -1,0 +1,3 @@
+[submodule "bsp/sdk/ch57x"]
+	path = bsp/sdk/ch57x
+	url = https://github.com/CYK-dot/easy-ch57x-bsp.git
