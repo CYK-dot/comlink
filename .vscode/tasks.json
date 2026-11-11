@@ -1,0 +1,131 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "全量清除",
+            "detail": "删除 build/ 目录，回到未配置状态",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-E",
+                "rm",
+                "-rf",
+                "build"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "配置",
+            "detail": "cmake -B build -G \"MinGW Makefiles\"",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-B",
+                "build",
+                "-G",
+                "MinGW Makefiles"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "构建 bootloader",
+            "detail": "构建 bootloader.elf / bootloader.hex（0x0000）",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "build",
+                "--target",
+                "bootloader",
+                "-j2"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": "配置",
+            "dependsOrder": "sequence",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "构建 app",
+            "detail": "构建 app.elf / app.hex（0x4000）",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "build",
+                "--target",
+                "app",
+                "-j2"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": "配置",
+            "dependsOrder": "sequence",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "构建全镜像",
+            "detail": "构建 bootloader + app，合并出 full.hex / full.bin",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "build",
+                "--target",
+                "full",
+                "-j2"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": "配置",
+            "dependsOrder": "sequence",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        }
+    ]
+}
