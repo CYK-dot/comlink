@@ -1,0 +1,9 @@
+# CH32X035 evaluation board — the CH32X03x chip adapter.
+
+[chip]
+family = "ch32x03x"
+model  = "CH32X035"
+usb    = true
+
+[board]
+name = "ch32x035-evb"

@@ -1,0 +1,20 @@
+# Facts about the silicon fitted to the board.
+#
+# Two items, both strings, both required: a preset that forgets one fails at
+# configure time instead of silently building for the wrong chip. Values are
+# read by the `bsp` component only; the build and the code read its features.
+
+[[dimension]]
+id = "chip.family"
+type = "string"
+doc = "Chip family; selects bsp/adapt/chip/<family> and the toolchain it carries."
+
+[[dimension]]
+id = "chip.model"
+type = "string"
+doc = "Exact part number handed to the vendor SDK."
+
+[[dimension]]
+id = "chip.usb"
+type = "bool"
+doc = "USB full-speed device controller fitted on this part; enables platform/protousb."

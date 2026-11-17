@@ -1,36 +1,101 @@
 /**
  * @file    app.c
- * @brief   app demo：PA7 每 500ms 翻转一次（慢闪）
+ * @brief   app demo: 500 ms LED blink, plus an optional USB CDC "hello world"
  *
- * @note    时钟由 bootloader 配置，app 继承，不再重复 SetSysClock。
+ * With the bsp.USB feature the TinyUSB device stack is driven from its own AO: a 1 ms
+ * timer runs tud_task() and a 1 s timer queues "hello world" on the CDC IN
+ * endpoint.
  */
-#include "CH57x_common.h"
+#include "bsp_sys.h"
+#include "bspdbg.h"
+#include "osal.h"
+#include "strata_features.h"
 
-#define LED_PORT_PIN     GPIO_Pin_7
-#define LED_HALF_MS      500
-
-/**
- * @brief 启动阶梯诊断：按 LED 图案定位卡死在哪一步，定位完置 0
- *        [0] 翻转 PA7 并保持数秒 —— 说明已进入 main
- *        [1] 连闪 6 次           —— 说明 main 能正常跑完循环
- *        [2] 慢闪                —— 说明完整 BSP 路径可用
- */
-#ifndef APP_BRINGUP_LADDER
-#define APP_BRINGUP_LADDER 1
+#ifdef STRATA_FEATURE_BSP_USB
+#include "palusb.h"
 #endif
 
-#define BUSY(n)  do { for(volatile uint32_t _b = 0; _b < (uint32_t)(n); _b++) { } } while(0)
+#define LED_BLINK_MS 500u
+#define USB_TASK_MS  1u
+#define USB_HELLO_TICKS (1000u / USB_TASK_MS)
+
+enum {
+    LED_SIG = 1,
+#ifdef STRATA_FEATURE_BSP_USB
+    USB_TASK_SIG = 2,
+#endif
+};
+
+static void led_on_event(osal_ao_t *self, osal_evt_t const *evt)
+{
+    (void)self;
+
+    if (evt->sig == LED_SIG) {
+        bspdbg_led_toggle();
+    }
+}
+
+#ifdef STRATA_FEATURE_BSP_USB
+static void usb_on_event(osal_ao_t *self, osal_evt_t const *evt)
+{
+    static uint32_t ticks;
+
+    (void)self;
+
+    switch (evt->sig) {
+    case USB_TASK_SIG:
+        palusb_task();
+        if (++ticks >= USB_HELLO_TICKS) {
+            ticks = 0;
+            palusb_send_string("hello world\r\n");
+        }
+        break;
+    default:
+        break;
+    }
+}
+#endif
 
 int main(void)
 {
-    __asm volatile("fence.i");   /* 作废 boot 阶段可能残留的指令缓存 */
+    osal_ao_t *led;
+    osal_timer_t *timer;
 
-    GPIOA_ModeCfg(LED_PORT_PIN, GPIO_ModeOut_PP_5mA);
-    GPIOA_ResetBits(LED_PORT_PIN);
+    bspdbg_led_init();
+    osal_init();
 
-    for(;;)
-    {
-        GPIOA_InverseBits(LED_PORT_PIN);
-        mDelaymS(LED_HALF_MS);
+    led = osal_ao_create(led_on_event, 1u);
+    if (led == 0) {
+        for (;;) {
+        }
     }
+    (void)osal_ao_start(led);
+
+    timer = osal_timer_create(led, LED_SIG);
+    if (timer == 0) {
+        for (;;) {
+        }
+    }
+    (void)osal_timer_start(timer, LED_BLINK_MS, true);
+
+#ifdef STRATA_FEATURE_BSP_USB
+    osal_ao_t *usb = osal_ao_create(usb_on_event, 2u);
+    if (usb == 0) {
+        for (;;) {
+        }
+    }
+
+    palusb_init();
+    (void)osal_ao_start(usb);
+
+    osal_timer_t *usb_task = osal_timer_create(usb, USB_TASK_SIG);
+    if (usb_task == 0) {
+        for (;;) {
+        }
+    }
+    (void)osal_timer_start(usb_task, USB_TASK_MS, true);
+#endif
+
+    bsp_tick_start(OSAL_TICK_HZ, osal_tick);
+    osal_run();
 }

@@ -1,59 +1,50 @@
 /**
  * @file    bootloader.c
- * @brief   bootloader demo：PA7 快闪 10 秒后跳转到 app（0x4000）
+ * @brief   bootloader：LED 快闪 5 秒后校验并跳转到 app（与芯片无关）
+ *
+ * 镜像被拒绝时用短闪次数报出原因（1 = 魔数缺失，2 = 长度越界，3 = CRC 不符），
+ * 随后停顿 1 秒，循环等待升级。
  */
-#include "CH57x_common.h"
+#include "bsp_sys.h"
+#include "bspboot.h"
+#include "bspdbg.h"
 
-#define LED_PIN          GPIO_Pin_7
-#define APP_BASE         0x00004000u   /* 与 main/app.ld 中 FLASH ORIGIN 一致 */
-#define BOOT_WAIT_MS     10000u
+#define BOOT_WAIT_MS     5000u
 #define BOOT_BLINK_MS    50u
-#define JAL_OPCODE       0x6Fu         /* app 首条指令应为 j handle_reset */
+#define BOOT_CODE_MS     120u
+#define BOOT_PAUSE_MS    1000u
 
-/* app 镜像是否已烧录：0x4000 处的首条指令是 JAL，擦除态 0xFFFFFFFF 不是 */
-static bool app_present(void)
+static void wait_for_upgrade(bspboot_img_t reason)
 {
-    return ((*(volatile uint32_t *)APP_BASE) & 0x7Fu) == JAL_OPCODE;
-}
-
-/* 无有效镜像：3 短闪 + 1 秒停顿，无限循环（后续接 USB MSC / RF 下载） */
-static void wait_for_upgrade(void)
-{
-    for(;;)
-    {
-        for(uint8_t i = 0; i < 3; i++)
-        {
-            GPIOA_InverseBits(LED_PIN);
-            mDelaymS(80);
-            GPIOA_InverseBits(LED_PIN);
-            mDelaymS(80);
+    for(;;) {
+        for(uint8_t i = 0; i < (uint8_t)reason; i++) {
+            bspdbg_led_toggle();
+            bspdbg_poll_delayms(BOOT_CODE_MS);
+            bspdbg_led_toggle();
+            bspdbg_poll_delayms(BOOT_CODE_MS);
         }
-        mDelaymS(1000);
+        bspdbg_poll_delayms(BOOT_PAUSE_MS);
     }
 }
 
 int main(void)
 {
-    SetSysClock(CLK_SOURCE_HSE_PLL_100MHz);
-    GPIOA_ModeCfg(LED_PIN, GPIO_ModeOut_PP_5mA);
-    GPIOA_ResetBits(LED_PIN);
+    bsp_sys_init();                    /* 时钟与系统初始化由 BSP 负责，app 继承 */
+    bspdbg_led_init();
 
-    for(uint32_t t = 0; t < BOOT_WAIT_MS; t += 2 * BOOT_BLINK_MS)
-    {
-        GPIOA_InverseBits(LED_PIN);
-        mDelaymS(BOOT_BLINK_MS);
-        GPIOA_InverseBits(LED_PIN);
-        mDelaymS(BOOT_BLINK_MS);
+    for(uint32_t t = 0; t < BOOT_WAIT_MS; t += 2 * BOOT_BLINK_MS) {
+        bspdbg_led_toggle();
+        bspdbg_poll_delayms(BOOT_BLINK_MS);
+        bspdbg_led_toggle();
+        bspdbg_poll_delayms(BOOT_BLINK_MS);
     }
 
-    if(!app_present())
-    {
-        wait_for_upgrade();
+    bspboot_img_t const img = bspboot_check_app();
+    if(img != BSPBOOT_IMG_OK) {
+        wait_for_upgrade(img);
     }
 
-    PFIC_DisableAllIRQ();              /* app 的 _start 会重装向量表并重新开中断 */
-    ((void (*)(void))APP_BASE)();      /* 跳 app 的 _start，不返回 */
-    for(;;)
-    {
+    bspboot_launch_app();              /* 不返回 */
+    for(;;) {
     }
 }

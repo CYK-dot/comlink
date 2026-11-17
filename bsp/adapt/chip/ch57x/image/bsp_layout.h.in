@@ -1,0 +1,15 @@
+/**
+ * @file    bsp_layout.h.in
+ * @brief   Image magic word shared by the signer and the bootloader
+ *
+ * The application slot bounds are not here: they are linker symbols provided by
+ * layout/boot.ld, so the linker script stays their only definition.
+ */
+
+#ifndef BSP_LAYOUT_H
+#define BSP_LAYOUT_H
+
+/** Image magic word, shared with the signer (see bsp.cmake) */
+#define BSP_IMG_MAGIC (@BSP_IMG_MAGIC@u)
+
+#endif /* BSP_LAYOUT_H */

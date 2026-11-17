@@ -1,0 +1,44 @@
+﻿{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "ch572-evb",
+            "displayName": "CH572 evaluation board",
+            "generator": "MinGW Makefiles",
+            "binaryDir": "${sourceDir}/build/ch572-evb",
+            "cacheVariables": {
+                "STRATA_PRESET": "ch572-evb"
+            }
+        },
+        {
+            "name": "ch32x035-evb",
+            "displayName": "CH32X035 evaluation board",
+            "generator": "MinGW Makefiles",
+            "binaryDir": "${sourceDir}/build/ch32x035-evb",
+            "cacheVariables": {
+                "STRATA_PRESET": "ch32x035-evb"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "ch572-evb",
+            "configurePreset": "ch572-evb",
+            "targets": [
+                "full",
+                "app_hex",
+                "bootloader_hex"
+            ]
+        },
+        {
+            "name": "ch32x035-evb",
+            "configurePreset": "ch32x035-evb",
+            "targets": [
+                "full",
+                "app_hex",
+                "bootloader_hex"
+            ]
+        }
+    ]
+}
+

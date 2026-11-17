@@ -1,3 +1,15 @@
 [submodule "bsp/sdk/ch57x"]
 	path = bsp/sdk/ch57x
 	url = https://github.com/CYK-dot/easy-ch57x-bsp.git
+[submodule "bsp/sdk/ch32x03x"]
+	path = bsp/sdk/ch32x03x
+	url = https://github.com/CYK-dot/easy_ch32x03x_bsp.git
+[submodule "bsp/sdk/strata"]
+	path = bsp/sdk/strata
+	url = https://github.com/CYK-dot/strata
+[submodule "platform/os/qpc"]
+	path = platform/os/qpc
+	url = https://github.com/QuantumLeaps/qpc.git
+[submodule "platform/protousb/tinyusb"]
+	path = platform/protousb/tinyusb
+	url = https://github.com/CYK-dot/tinyusb.git

@@ -1,0 +1,32 @@
+# BSP component: the software vocabulary for the fitted silicon.
+#
+# The build and the code read these; neither reads chip.family / chip.model.
+
+component = "bsp"
+
+[[feature]]
+name = "bsp.FAMILY"
+type = "string"
+doc = "Chip family: the chip adapter and toolchain this build uses."
+
+[[feature]]
+name = "bsp.BOARD"
+type = "string"
+doc = "Board: the board adapter this build adds on top of the chip."
+
+[[feature]]
+name = "bsp.MODEL"
+type = "string"
+doc = "Part number the vendor SDK compiles for."
+
+# CPU backends: which core the board carries. The BSP selects one of them for
+# compilation; the C side picks its inline implementation from the same macro.
+[[feature]]
+name = "bsp.ARCH_QINGKE"
+type = "bool"
+doc = "WCH QingKe (RV32): selects bsp/adapt/cpu/qingke."
+
+[[feature]]
+name = "bsp.USB"
+type = "bool"
+doc = "USB full-speed device controller: selects platform/protousb."

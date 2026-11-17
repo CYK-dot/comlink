@@ -1,0 +1,9 @@
+# Facts about the board the firmware runs on.
+#
+# The board name selects bsp/adapt/board/<name> and reaches the build as the
+# bsp.BOARD feature; the chip the board carries stays in chip.toml.
+
+[[dimension]]
+id = "board.name"
+type = "string"
+doc = "Board the firmware is built for; selects bsp/adapt/board/<name>."

@@ -1,9 +1,21 @@
 {
     "version": "2.0.0",
+    "inputs": [
+        {
+            "id": "board",
+            "type": "pickString",
+            "description": "选择目标板（对应一个 strata preset）",
+            "options": [
+                "ch572-evb",
+                "ch32x035-evb"
+            ],
+            "default": "ch572-evb"
+        }
+    ],
     "tasks": [
         {
             "label": "全量清除",
-            "detail": "删除 build/ 目录，回到未配置状态",
+            "detail": "删除 build/ 目录（所有板子的构建目录一起清除）",
             "type": "shell",
             "command": "cmake",
             "args": [
@@ -24,14 +36,12 @@
         },
         {
             "label": "配置",
-            "detail": "cmake -B build -G \"MinGW Makefiles\"",
+            "detail": "cmake --preset <board>（ch572-evb / ch32x035-evb）",
             "type": "shell",
             "command": "cmake",
             "args": [
-                "-B",
-                "build",
-                "-G",
-                "MinGW Makefiles"
+                "--preset",
+                "${input:board}"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -45,15 +55,15 @@
         },
         {
             "label": "构建 bootloader",
-            "detail": "构建 bootloader.elf / bootloader.hex（0x0000）",
+            "detail": "构建 <board> 的 bootloader.elf 与 bootloader.hex",
             "type": "shell",
             "command": "cmake",
             "args": [
                 "--build",
-                "build",
+                "build/${input:board}",
                 "--target",
-                "bootloader",
-                "-j2"
+                "bootloader_hex",
+                "-j"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -72,15 +82,15 @@
         },
         {
             "label": "构建 app",
-            "detail": "构建 app.elf / app.hex（0x4000）",
+            "detail": "构建 <board> 的 app.elf（已签名）与 app.hex",
             "type": "shell",
             "command": "cmake",
             "args": [
                 "--build",
-                "build",
+                "build/${input:board}",
                 "--target",
-                "app",
-                "-j2"
+                "app_hex",
+                "-j"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -99,15 +109,17 @@
         },
         {
             "label": "构建全镜像",
-            "detail": "构建 bootloader + app，合并出 full.hex / full.bin",
+            "detail": "构建 <board> 的 bootloader + app，并合并出 full.hex",
             "type": "shell",
             "command": "cmake",
             "args": [
                 "--build",
-                "build",
+                "build/${input:board}",
                 "--target",
                 "full",
-                "-j2"
+                "app_hex",
+                "bootloader_hex",
+                "-j"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -118,6 +130,108 @@
                 "kind": "build",
                 "isDefault": true
             },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "构建全部款型",
+            "detail": "依次配置并构建所有款型（ch572-evb、ch32x035-evb）的 full.hex / app.hex / bootloader.hex",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "构建款型 ch572-evb",
+                "构建款型 ch32x035-evb"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "配置款型 ch572-evb",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--preset",
+                "ch572-evb"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "hide": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "构建款型 ch572-evb",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "--preset",
+                "ch572-evb"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": "配置款型 ch572-evb",
+            "dependsOrder": "sequence",
+            "hide": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "配置款型 ch32x035-evb",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--preset",
+                "ch32x035-evb"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "hide": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "构建款型 ch32x035-evb",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "--preset",
+                "ch32x035-evb"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": "配置款型 ch32x035-evb",
+            "dependsOrder": "sequence",
+            "hide": true,
             "presentation": {
                 "reveal": "always",
                 "panel": "shared",
