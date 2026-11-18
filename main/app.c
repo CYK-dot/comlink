@@ -1,101 +1,186 @@
-/**
+﻿/**
  * @file    app.c
- * @brief   app demo: 500 ms LED blink, plus an optional USB CDC "hello world"
+ * @brief   Application entry: one USB test service on the static scheduler.
+ * @author  CYK-Dot <chenyukai@xmurcs.cn>
+ * @date    2026-11-18
  *
- * With the bsp.USB feature the TinyUSB device stack is driven from its own AO: a 1 ms
- * timer runs tud_task() and a 1 s timer queues "hello world" on the CDC IN
- * endpoint.
+ * SPDX-FileCopyrightText: 2026 CYK-Dot <chenyukai@xmurcs.cn>
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+#include <stdbool.h>
+#include <stdint.h>
+
 #include "bsp_sys.h"
 #include "bspdbg.h"
-#include "osal.h"
-#include "strata_features.h"
-
-#ifdef STRATA_FEATURE_BSP_USB
+#include "comlink_ids.h"
+#include "osal_port.h"
+#include "osal_sched_sq.h"
 #include "palusb.h"
-#endif
 
-#define LED_BLINK_MS 500u
-#define USB_TASK_MS  1u
-#define USB_HELLO_TICKS (1000u / USB_TASK_MS)
+/** @brief Private memory of the USB test service. */
+typedef struct {
+    uint32_t ticks; /**< Reserved for future use. */
+} usbtest_ctx_t;
 
-enum {
-    LED_SIG = 1,
-#ifdef STRATA_FEATURE_BSP_USB
-    USB_TASK_SIG = 2,
-#endif
-};
-
-static void led_on_event(osal_ao_t *self, osal_evt_t const *evt)
+/**
+ * @brief Construct the USB test service.
+ *
+ * @param pthis      Private memory.
+ * @param param      Construction parameter, unused.
+ * @param param_size Construction parameter size, unused.
+ * @return Always true.
+ */
+static bool usbtest_ctor(void *pthis, const void *param, uint16_t param_size)
 {
-    (void)self;
+    usbtest_ctx_t * const ctx = (usbtest_ctx_t *)pthis;
 
-    if (evt->sig == LED_SIG) {
-        bspdbg_led_toggle();
-    }
+    (void)param;
+    (void)param_size;
+
+    ctx->ticks = 0u;
+    return true;
 }
 
-#ifdef STRATA_FEATURE_BSP_USB
-static void usb_on_event(osal_ao_t *self, osal_evt_t const *evt)
+/**
+ * @brief Consume one message of the USB test service.
+ *
+ * @param pthis Private memory, unused.
+ * @param sched Scheduler that dispatched the message, unused.
+ * @param msg   Message identifier.
+ */
+static void usbtest_msg_cb(void *pthis, osal_sched_t sched, uintptr_t msg)
 {
-    static uint32_t ticks;
+    (void)pthis;
+    (void)sched;
 
-    (void)self;
-
-    switch (evt->sig) {
-    case USB_TASK_SIG:
+    switch ((uint32_t)msg) {
+    case COMLINK_MSG_USB_TASK:
         palusb_task();
-        if (++ticks >= USB_HELLO_TICKS) {
-            ticks = 0;
-            palusb_send_string("hello world\r\n");
-        }
+        break;
+    case COMLINK_MSG_USB_HELLO:
+        palusb_send_string("hello world\r\n");
+        break;
+    case COMLINK_MSG_LED:
+        bspdbg_led_toggle();
         break;
     default:
         break;
     }
 }
-#endif
 
+/** @brief Class declaration of the USB test service. */
+static const osal_asvc_class_t s_usbtest_class = {
+    .ctor = usbtest_ctor,
+    .dtor = (void (*)(void *))0,
+    .msg_cb = usbtest_msg_cb,
+    .rtc_msg_cb = (void (*)(void *, osal_sched_t, uintptr_t))0,
+};
+
+/** @brief Deployment table of the application. */
+static const osal_asvc_deploy_t s_deploy[] = {
+    {
+        .base = &s_usbtest_class,
+        .ctor_param = (const void *)0,
+        .ctor_param_size = 0u,
+        .pthis_size = (uint16_t)sizeof(usbtest_ctx_t),
+        .pthis_align = 4u,
+    },
+};
+
+static const osal_asvc_deploy_tbl_t s_deptbl = {
+    .entries = s_deploy,
+    .entry_cnt = 1u,
+};
+
+static const osal_tagfwd_tbl_t s_fwdtbl = {
+    .entries = (const uint32_t *)0,
+    .entry_cnt = 0u,
+};
+
+/** @brief Workspace of the scheduler, sized by the compile-time bound. */
+#define APP_WS_SIZE \
+    OSAL_SCHEDSSQ_WORKSPACE_SIZE( \
+        1u, \
+        OSAL_SCHEDSSQ_PTHIS_BYTES(sizeof(usbtest_ctx_t), 4u), \
+        3u, \
+        8u)
+
+static uint8_t s_workspace[APP_WS_SIZE] __attribute__((aligned(8)));
+
+static const osal_schedssq_ctorparam_t s_sched_param = {
+    .deptbl = &s_deptbl,
+    .fwdtbl = &s_fwdtbl,
+    .workspace = s_workspace,
+    .workspace_size = (uint16_t)sizeof(s_workspace),
+    .msgq_max_len = 8u,
+    .tmr_max_cnt = 3u,
+};
+
+/**
+ * @brief Application entry point.
+ *
+ * @return Never returns.
+ */
 int main(void)
 {
-    osal_ao_t *led;
-    osal_timer_t *timer;
+    osal_sched_t sched = (osal_sched_t)0;
+    osal_tmr_param_t tmr;
+    uint16_t tmr_id;
 
     bspdbg_led_init();
-    osal_init();
-
-    led = osal_ao_create(led_on_event, 1u);
-    if (led == 0) {
-        for (;;) {
-        }
-    }
-    (void)osal_ao_start(led);
-
-    timer = osal_timer_create(led, LED_SIG);
-    if (timer == 0) {
-        for (;;) {
-        }
-    }
-    (void)osal_timer_start(timer, LED_BLINK_MS, true);
-
-#ifdef STRATA_FEATURE_BSP_USB
-    osal_ao_t *usb = osal_ao_create(usb_on_event, 2u);
-    if (usb == 0) {
-        for (;;) {
-        }
-    }
-
     palusb_init();
-    (void)osal_ao_start(usb);
 
-    osal_timer_t *usb_task = osal_timer_create(usb, USB_TASK_SIG);
-    if (usb_task == 0) {
+    if (osal_schedssq_create(0u, &s_sched_param, &sched) != OSAL_OK) {
         for (;;) {
         }
     }
-    (void)osal_timer_start(usb_task, USB_TASK_MS, true);
-#endif
 
-    bsp_tick_start(OSAL_TICK_HZ, osal_tick);
-    osal_run();
+    tmr = (osal_tmr_param_t){
+        .dest_iid = COMLINK_ASVCIID_USBTEST,
+        .msg = (uintptr_t)COMLINK_MSG_USB_TASK,
+        .period_ms = 1u,
+        .repeat = true,
+    };
+    if (osal_sched_tmr_spawn(sched, &tmr, &tmr_id) != OSAL_OK) {
+        for (;;) {
+        }
+    }
+
+    tmr = (osal_tmr_param_t){
+        .dest_iid = COMLINK_ASVCIID_USBTEST,
+        .msg = (uintptr_t)COMLINK_MSG_USB_HELLO,
+        .period_ms = 1000u,
+        .repeat = true,
+    };
+    if (osal_sched_tmr_spawn(sched, &tmr, &tmr_id) != OSAL_OK) {
+        for (;;) {
+        }
+    }
+
+    tmr = (osal_tmr_param_t){
+        .dest_iid = COMLINK_ASVCIID_USBTEST,
+        .msg = (uintptr_t)COMLINK_MSG_LED,
+        .period_ms = 500u,
+        .repeat = true,
+    };
+    if (osal_sched_tmr_spawn(sched, &tmr, &tmr_id) != OSAL_OK) {
+        for (;;) {
+        }
+    }
+
+    bsp_tick_start(OSAL_PORT_TICK_HZ, osal_port_tick);
+    osal_sched_run(sched);
 }
+

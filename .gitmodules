@@ -7,9 +7,6 @@
 [submodule "bsp/sdk/strata"]
 	path = bsp/sdk/strata
 	url = https://github.com/CYK-dot/strata
-[submodule "platform/os/qpc"]
-	path = platform/os/qpc
-	url = https://github.com/QuantumLeaps/qpc.git
 [submodule "platform/protousb/tinyusb"]
 	path = platform/protousb/tinyusb
 	url = https://github.com/CYK-dot/tinyusb.git
